@@ -1,6 +1,6 @@
 use super::button::base;
 use crate::theme::Theme;
-use gpui::{ClickEvent, Context, FontWeight, Window, deferred, div, prelude::*, px};
+use gpui::{ClickEvent, SharedString, Context, FontWeight, Window, deferred, div, prelude::*, px};
 use std::rc::Rc;
 
 /// Select-style button (bordered) that toggles a floating list. `current` marks the selected item.
@@ -19,6 +19,7 @@ pub fn dropdown<V: 'static>(
     let on_pick = Rc::new(on_pick);
     let th = *th;
     let mut panel = div()
+        .id(SharedString::from(format!("{id}-panel")))
         .absolute()
         .top(px(30.))
         .occlude()
@@ -26,7 +27,7 @@ pub fn dropdown<V: 'static>(
         .flex_col()
         .min_w(px(168.))
         .max_h(px(360.))
-        .overflow_hidden()
+        .overflow_y_scroll()
         .p_1()
         .rounded_md()
         .border_1()

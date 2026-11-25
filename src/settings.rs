@@ -3,7 +3,6 @@ use crate::files;
 use gpui::Global;
 use std::path::PathBuf;
 
-pub const FONTS: [&str; 5] = ["Menlo", "Helvetica", "Times New Roman", "Courier New", "Monaco"];
 pub const SIZES: [f32; 10] = [10., 12., 14., 16., 18., 20., 24., 28., 32., 48.];
 const MAX_RECENT: usize = 10;
 
@@ -14,7 +13,11 @@ pub struct Settings {
     pub wrap: bool,
     pub line_numbers: bool,
     pub check_updates: bool,
+    pub autosave: bool,
     pub recent: Vec<PathBuf>,
+    /// Open files at last run: (path, cursor offset), plus the active tab index.
+    pub session: Vec<(PathBuf, usize)>,
+    pub session_active: usize,
 }
 
 impl Global for Settings {}
@@ -22,13 +25,16 @@ impl Global for Settings {}
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            font_family: FONTS[0].into(),
+            font_family: "Menlo".into(),
             font_size: 16.,
-            theme: "Dark+".into(),
+            theme: crate::theme::SYSTEM.into(),
             wrap: true,
             line_numbers: true,
             check_updates: true,
+            autosave: false,
             recent: Vec::new(),
+            session: Vec::new(),
+            session_active: 0,
         }
     }
 }
@@ -52,7 +58,15 @@ impl Settings {
                 "wrap" => s.wrap = v == "1",
                 "lines" => s.line_numbers = v == "1",
                 "updates" => s.check_updates = v == "1",
+                "autosave" => s.autosave = v == "1",
                 "recent" => s.recent.push(v.into()),
+                "session" => {
+                    // cursor first so paths may contain '|'
+                    if let Some((c, p)) = v.split_once('|') {
+                        s.session.push((p.into(), c.parse().unwrap_or(0)));
+                    }
+                }
+                "active" => s.session_active = v.parse().unwrap_or(0),
                 _ => {}
             }
         }
@@ -61,14 +75,19 @@ impl Settings {
 
     pub fn save(&self) {
         let mut out = format!(
-            "font={}\nsize={}\ntheme={}\nwrap={}\nlines={}\nupdates={}\n",
+            "font={}\nsize={}\ntheme={}\nwrap={}\nlines={}\nupdates={}\nautosave={}\nactive={}\n",
             self.font_family,
             self.font_size,
             self.theme,
             self.wrap as u8,
             self.line_numbers as u8,
-            self.check_updates as u8
+            self.check_updates as u8,
+            self.autosave as u8,
+            self.session_active
         );
+        for (p, c) in &self.session {
+            out.push_str(&format!("session={c}|{}\n", p.display()));
+        }
         for p in &self.recent {
             out.push_str(&format!("recent={}\n", p.display()));
         }

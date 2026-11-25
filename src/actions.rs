@@ -17,7 +17,7 @@ actions!(
     [
         NewTab, OpenFile, Save, SaveAs, CloseTab, NextTab, PrevTab, Find, Replace, FindNext,
         FindPrev, GoToLine, ToggleWrap, ToggleLineNumbers, InsertDateTime, ZoomIn, ZoomOut,
-        ToggleTheme, Quit, Escape, CheckForUpdates, ToggleUpdateCheck,
+        ToggleTheme, Quit, Escape, CheckForUpdates, ToggleUpdateCheck, ToggleAutosave,
     ]
 );
 
@@ -78,6 +78,7 @@ pub fn menus() -> Vec<Menu> {
                 MenuItem::separator(),
                 item("Save", Save),
                 item("Save As…", SaveAs),
+                item("Autosave", ToggleAutosave),
                 MenuItem::separator(),
                 item("Close Tab", CloseTab),
             ],

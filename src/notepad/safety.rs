@@ -2,7 +2,8 @@
 use super::Notepad;
 use crate::editor::Editor;
 use crate::files;
-use gpui::{Context, PromptLevel, Window};
+use crate::settings::Settings;
+use gpui::{prelude::*, Context, PromptLevel, Window};
 use std::time::Duration;
 
 const AUTOSAVE_EVERY_TICKS: u32 = 5;
@@ -27,7 +28,15 @@ impl Notepad {
         }
     }
 
-    pub(super) fn start_background_tasks(&mut self, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn start_background_tasks(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Autosave when the user switches away; re-render when the OS goes light/dark.
+        cx.observe_window_activation(window, |this, window, cx| {
+            if !window.is_window_active() {
+                this.autosave_files(cx);
+            }
+        })
+        .detach();
+        cx.observe_window_appearance(window, |_, _, cx| cx.notify()).detach();
         cx.spawn(async move |this, cx| {
             let mut tick = 0u32;
             loop {
@@ -47,7 +56,83 @@ impl Notepad {
         .detach();
     }
 
+    /// Reopen the files that were open last run, with their cursors and active tab.
+    pub(super) fn restore_session(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (session, active) = {
+            let s = cx.global::<Settings>();
+            (s.session.clone(), s.session_active)
+        };
+        let mut active_tab = None;
+        for (i, (path, cursor)) in session.into_iter().enumerate() {
+            if !path.exists() || !self.open_path_opts(path, false, window, cx) {
+                continue;
+            }
+            let tab = self.active_editor().clone();
+            tab.update(cx, |e, cx| {
+                let c = cursor.min(e.text().len());
+                if e.text().is_char_boundary(c) {
+                    e.select_range(c..c, cx);
+                }
+            });
+            if i == active {
+                active_tab = Some(tab);
+            }
+        }
+        if let Some(i) = active_tab.and_then(|t| self.tabs.iter().position(|x| *x == t)) {
+            self.select_tab(i, window, cx);
+        }
+    }
+
+    /// Remember open files (untitled notes are covered by crash recovery). Writes only on change.
+    pub(super) fn save_session(&mut self, cx: &mut Context<Self>) {
+        let mut session = Vec::new();
+        let mut active = 0;
+        for (i, t) in self.tabs.iter().enumerate() {
+            let e = t.read(cx);
+            if let Some(p) = &e.file.path {
+                if i == self.active {
+                    active = session.len();
+                }
+                session.push((p.clone(), e.buffer.cursor()));
+            }
+        }
+        let s = cx.global::<Settings>();
+        if s.session != session || s.session_active != active {
+            cx.update_global(|s: &mut Settings, _| {
+                s.session = session;
+                s.session_active = active;
+                s.save();
+            });
+        }
+    }
+
+    /// Autosave setting: write dirty tabs that already have a file. Skips files changed on disk
+    /// so we never clobber someone else's edit.
+    pub(super) fn autosave_files(&mut self, cx: &mut Context<Self>) {
+        if !cx.global::<Settings>().autosave {
+            return;
+        }
+        let mut saved = false;
+        for t in self.tabs.clone() {
+            let path = {
+                let e = t.read(cx);
+                if !e.dirty() || e.file.changed_on_disk { continue }
+                let Some(p) = e.file.path.clone() else { continue };
+                p
+            };
+            match Self::write_file(&t, &path, cx) {
+                Ok(()) => saved = true,
+                Err(err) => self.status = format!("Autosave failed: {err}"),
+            }
+        }
+        if saved {
+            cx.notify();
+        }
+    }
+
     fn autosave(&mut self, cx: &mut Context<Self>) {
+        self.autosave_files(cx);
+        self.save_session(cx);
         for t in &self.tabs {
             let e = t.read(cx);
             if e.dirty() && self.autosaved.get(&e.file.id) != Some(&e.buffer.version) {
@@ -107,6 +192,8 @@ impl Notepad {
 
     /// True when it is fine to close now. Otherwise asks the user and, on "Discard", closes later.
     pub fn request_close(&mut self, window: &mut Window, cx: &mut Context<Self>, quit: bool) -> bool {
+        self.autosave_files(cx);
+        self.save_session(cx);
         let dirty: Vec<&Editor> = self.tabs.iter().map(|t| t.read(cx)).filter(|e| e.dirty()).collect();
         if self.force_close || dirty.is_empty() {
             return true;

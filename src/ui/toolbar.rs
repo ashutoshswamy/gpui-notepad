@@ -1,7 +1,7 @@
 use super::button::button;
 use super::dropdown::dropdown;
 use crate::notepad::{Menu, Notepad};
-use crate::settings::{FONTS, SIZES, Settings};
+use crate::settings::{SIZES, Settings};
 use crate::theme::Theme;
 use gpui::{Context, Window, div, prelude::*, px};
 
@@ -26,7 +26,8 @@ pub fn toolbar(np: &Notepad, th: &Theme, cx: &mut Context<Notepad>) -> impl Into
         .collect();
     let themes: Vec<&'static str> = Theme::names().collect();
     let cur_theme = themes.iter().position(|n| *n == theme_name);
-    let cur_font = FONTS.iter().position(|f| *f == font);
+    let fonts = np.fonts.clone();
+    let cur_font = fonts.iter().position(|f| *f == font);
     let cur_size = SIZES.iter().position(|s| *s == size);
     let open = |m| np.menu == Some(m);
 
@@ -67,15 +68,15 @@ pub fn toolbar(np: &Notepad, th: &Theme, cx: &mut Context<Notepad>) -> impl Into
             "font",
             font,
             open(Menu::Font),
-            FONTS.iter().map(|f| f.to_string()).collect(),
+            fonts.to_vec(),
             cur_font,
             false,
             th,
             cx,
             toggle(Menu::Font),
-            |np: &mut Notepad, i, _, cx| {
+            move |np: &mut Notepad, i, _, cx| {
                 np.menu = None;
-                np.update_settings(cx, |s| s.font_family = FONTS[i].into());
+                np.update_settings(cx, |s| s.font_family = fonts[i].clone());
             },
         ))
         .child(dropdown(

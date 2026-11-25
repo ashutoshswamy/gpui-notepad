@@ -11,7 +11,7 @@ use crate::settings::Settings;
 use crate::theme::Theme;
 use crate::ui::{banner, findbar, statusbar, tabs, toolbar};
 use gpui::{
-    App, Context, Entity, ExternalPaths, FocusHandle, Focusable, Window, div, prelude::*,
+    App, Context, Entity, ExternalPaths, FocusHandle, Focusable, Window, div, prelude::*, px,
 };
 use std::collections::HashMap;
 use std::ops::Range;
@@ -44,6 +44,8 @@ pub struct Notepad {
     pub cur_match: Option<usize>,
     pub status: String,
     pub update: Option<crate::update::Update>,
+    /// Installed font families, read once at startup.
+    pub fonts: std::rc::Rc<Vec<String>>,
     /// tab id -> buffer version last written to the recovery file
     autosaved: HashMap<u64, u64>,
     /// Set once the user confirmed discarding unsaved work, so closing proceeds.
@@ -81,11 +83,19 @@ impl Notepad {
             cur_match: None,
             status: String::new(),
             update: None,
+            fonts: {
+                let mut f: Vec<String> =
+                    cx.text_system().all_font_names().into_iter().filter(|n| !n.starts_with('.')).collect();
+                f.sort_by_key(|n| n.to_lowercase());
+                f.dedup();
+                f.into()
+            },
             autosaved: HashMap::new(),
             force_close: false,
             focus: cx.focus_handle(),
         };
         np.restore_recovered(window, cx);
+        np.restore_session(window, cx);
         if np.tabs.is_empty() {
             np.new_tab(window, cx);
         }
@@ -153,9 +163,10 @@ impl Render for Notepad {
             GoToLine => |t, w, c| t.open_goto(w, c),
             ToggleWrap => |t, _, c| t.update_settings(c, |s| s.wrap = !s.wrap),
             ToggleLineNumbers => |t, _, c| t.update_settings(c, |s| s.line_numbers = !s.line_numbers),
-            ToggleTheme => |t, _, c| t.update_settings(c, |s| {
-                s.theme = if Theme::by_name(&s.theme).dark { "Light+" } else { "Dark+" }.into()
-            }),
+            ToggleTheme => |t, _, c| { let dark = Theme::of(c).dark; t.update_settings(c, |s| {
+                s.theme = if dark { "Light+" } else { "Dark+" }.into()
+            }) },
+            ToggleAutosave => |t, _, c| t.update_settings(c, |s| s.autosave = !s.autosave),
             ZoomIn => |t, _, c| t.update_settings(c, |s| s.zoom(2.)),
             ZoomOut => |t, _, c| t.update_settings(c, |s| s.zoom(-2.)),
             InsertDateTime => |t, _, c| t.insert_datetime(c),
@@ -170,7 +181,55 @@ impl Render for Notepad {
             .children(findbar::bar(self, &th, window, cx))
             .children(banner::update_banner(self, &th, cx))
             .children(banner::disk_banner(self, &th, cx))
-            .child(div().flex_1().min_h_0().child(self.active_editor().clone()))
+            .child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .child(self.active_editor().clone())
+                    .children(empty_state(self.active_editor().read(cx), &th)),
+            )
             .child(statusbar::status_bar(self, &th, cx))
     }
+}
+
+/// Shown over a blank untitled tab. Has no mouse handlers, so clicks fall through to the editor.
+fn empty_state(ed: &Editor, th: &Theme) -> Option<impl IntoElement> {
+    if ed.file.path.is_some() || !ed.text().is_empty() {
+        return None;
+    }
+    let m = if cfg!(target_os = "macos") { "⌘" } else { "Ctrl+" };
+    let hint = |k: String, label: &'static str| {
+        div()
+            .flex()
+            .justify_between()
+            .gap_8()
+            .child(label)
+            .child(div().text_color(th.fg).child(k))
+    };
+    Some(
+        div()
+            .absolute()
+            .inset_0()
+            .flex()
+            .flex_col()
+            .items_center()
+            .justify_center()
+            .gap_4()
+            .text_color(th.muted)
+            .text_size(px(13.))
+            .child(div().text_size(px(22.)).text_color(th.fg).child("Start typing"))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .min_w(px(220.))
+                    .child(hint(format!("{m}N"), "New tab"))
+                    .child(hint(format!("{m}O"), "Open file"))
+                    .child(hint(format!("{m}F"), "Find"))
+                    .child(hint(format!("{m}L"), "Go to line")),
+            )
+            .child("or drop a file here to open it"),
+    )
 }

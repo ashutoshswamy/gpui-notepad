@@ -42,6 +42,7 @@ pub struct Editor {
     pub(crate) marked: Option<Range<usize>>,
     pub(crate) layout: Option<Layout>,
     pub(crate) blink: bool,
+    blink_hold: bool,
     pub(crate) reveal: bool,
     selecting: bool,
     goal_x: Option<Pixels>,
@@ -62,8 +63,12 @@ impl Editor {
             loop {
                 cx.background_executor().timer(Duration::from_millis(530)).await;
                 if this.update(cx, |e, cx| {
-                    e.blink = !e.blink;
-                    cx.notify();
+                    // Stay solid for one full period after any edit/move, like native text fields.
+                    let next = std::mem::take(&mut e.blink_hold) || !e.blink;
+                    if next != e.blink {
+                        e.blink = next;
+                        cx.notify();
+                    }
                 })
                 .is_err()
                 {
@@ -84,6 +89,7 @@ impl Editor {
             marked: None,
             layout: None,
             blink: true,
+            blink_hold: false,
             reveal: false,
             selecting: false,
             goal_x: None,
@@ -127,6 +133,7 @@ impl Editor {
     fn touched(&mut self, cx: &mut Context<Self>) {
         self.reveal = true;
         self.blink = true;
+        self.blink_hold = true;
         self.goal_x = None;
         cx.notify();
     }

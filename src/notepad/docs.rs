@@ -8,11 +8,7 @@ use std::path::PathBuf;
 
 impl Notepad {
     pub(super) fn make_editor(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Entity<Editor> {
-        let e = cx.new(|cx| {
-            let mut e = Editor::new(Mode::Document, cx);
-            e.placeholder = "Start typing, or drop a file here to open it".into();
-            e
-        });
+        let e = cx.new(|cx| Editor::new(Mode::Document, cx)); // empty state overlay stands in for a placeholder
         cx.subscribe_in(&e, window, Self::on_input_event).detach();
         e
     }
@@ -54,14 +50,21 @@ impl Notepad {
     }
 
     pub fn open_path(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_path_opts(path, true, window, cx);
+    }
+
+    /// Open (or focus) a file. `remember` adds it to Recent. False when it could not be read.
+    pub(super) fn open_path_opts(&mut self, path: PathBuf, remember: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if let Some(i) = self.tabs.iter().position(|t| t.read(cx).file.path.as_ref() == Some(&path)) {
-            return self.select_tab(i, window, cx);
+            self.select_tab(i, window, cx);
+            return true;
         }
         let loaded = match files::read(&path) {
             Ok(l) => l,
             Err(e) => {
                 self.status = format!("Open failed: {e}");
-                return cx.notify();
+                cx.notify();
+                return false;
             }
         };
         // Reuse a lone empty untitled tab instead of stacking tabs.
@@ -84,11 +87,26 @@ impl Notepad {
             e.file.crlf = loaded.crlf;
             e.file.changed_on_disk = false;
         });
-        cx.update_global(|s: &mut Settings, _| {
-            s.push_recent(path);
-            s.save();
-        });
+        if remember {
+            cx.update_global(|s: &mut Settings, _| {
+                s.push_recent(path);
+                s.save();
+            });
+        }
         self.select_tab(self.active, window, cx);
+        true
+    }
+
+    /// Drag-reorder: move tab `from` to index `to`, keeping the active tab active.
+    pub fn move_tab(&mut self, from: usize, to: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if from == to || from >= self.tabs.len() || to >= self.tabs.len() {
+            return;
+        }
+        let active = self.tabs[self.active].clone();
+        let t = self.tabs.remove(from);
+        self.tabs.insert(to, t);
+        let i = self.tabs.iter().position(|t| *t == active).unwrap_or(0);
+        self.select_tab(i, window, cx);
     }
 
     pub fn close_tab(&mut self, i: usize, window: &mut Window, cx: &mut Context<Self>) {

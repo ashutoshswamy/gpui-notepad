@@ -1,7 +1,7 @@
 //! Colour themes modelled on popular VS Code themes. Each maps the VS Code workbench
 //! keys the notepad actually uses (editor, tabs, buttons, status bar, selection...).
 use crate::settings::Settings;
-use gpui::{App, Rgba, rgb, rgba};
+use gpui::{App, Rgba, WindowAppearance, rgb, rgba};
 
 #[derive(Clone, Copy)]
 pub struct Theme {
@@ -64,9 +64,13 @@ const THEMES: &[Def] = &[
     Def { name: "Catppuccin Mocha", dark: true, c: [0x1e1e2e, 0xcdd6f4, 0x6c7086, 0xcdd6f4, 0x181825, 0x181825, 0x313244, 0x45475a, 0xcba6f7, 0x11111b, 0xcdd6f4], selection: 0x585b7088 },
 ];
 
+/// Pseudo theme name: follow the OS light/dark appearance.
+pub const SYSTEM: &str = "System";
+
 impl Theme {
+    /// "System" first, then the real themes.
     pub fn names() -> impl Iterator<Item = &'static str> {
-        THEMES.iter().map(|d| d.name)
+        std::iter::once(SYSTEM).chain(THEMES.iter().map(|d| d.name))
     }
 
     /// Unknown names fall back to Dark+.
@@ -97,7 +101,12 @@ impl Theme {
     }
 
     pub fn of(cx: &App) -> Self {
-        Self::by_name(&cx.global::<Settings>().theme)
+        let name = &cx.global::<Settings>().theme;
+        if name != SYSTEM {
+            return Self::by_name(name);
+        }
+        let dark = matches!(cx.window_appearance(), WindowAppearance::Dark | WindowAppearance::VibrantDark);
+        Self::by_name(if dark { "Dark+" } else { "Light+" })
     }
 }
 
@@ -110,7 +119,7 @@ mod tests {
         let mut n: Vec<_> = Theme::names().collect();
         n.sort();
         n.dedup();
-        assert_eq!(n.len(), THEMES.len());
+        assert_eq!(n.len(), THEMES.len() + 1);
         assert_eq!(Theme::by_name("nope").name, "Dark+");
     }
 }

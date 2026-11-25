@@ -6,8 +6,11 @@ A fast, simple notepad built with [GPUI](https://www.gpui.rs/), the UI framework
 
 - Tabs, undo/redo, selection, word/line navigation, IME input
 - Find and replace, go to line, word wrap, line numbers
-- 12 VS Code style themes (Dark+, Light+, One Dark Pro, Dracula, Monokai, Nord, Tokyo Night, ...)
-- Font family and size, recent files, drag and drop to open
+- 12 VS Code style themes (Dark+, Light+, One Dark Pro, Dracula, Monokai, Nord, Tokyo Night, ...), or follow the system light/dark setting
+- Any installed font, font size, recent files, drag and drop to open
+- Drag tabs to reorder, middle-click to close
+- Reopens the files you had open last time, with cursor positions
+- Optional autosave (File > Autosave): saves every few seconds and when you switch apps
 - Crash recovery for unsaved notes, close confirmation, "file changed on disk" warning
 
 ## Download

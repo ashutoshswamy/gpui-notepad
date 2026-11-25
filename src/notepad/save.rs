@@ -4,7 +4,7 @@ use crate::editor::Editor;
 use crate::files;
 use crate::settings::Settings;
 use gpui::{prelude::*, Context, Entity, Window};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 impl Notepad {
     pub fn save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -44,20 +44,26 @@ impl Notepad {
         .detach();
     }
 
-    fn write_tab(&mut self, tab: Entity<Editor>, path: PathBuf, close: bool, window: &mut Window, cx: &mut Context<Self>) {
+    /// Write a tab to `path` and mark it clean. Shared by Save and autosave.
+    pub(super) fn write_file(tab: &Entity<Editor>, path: &Path, cx: &mut Context<Self>) -> Result<(), String> {
         let (text, crlf, version, id) = {
             let e = tab.read(cx);
             (e.text().to_string(), e.file.crlf, e.buffer.version, e.file.id)
         };
-        match files::write(&path, &text, crlf) {
-            Ok(mtime) => {
-                tab.update(cx, |e, _| {
-                    e.file.path = Some(path.clone());
-                    e.file.saved_version = version;
-                    e.file.mtime = mtime;
-                    e.file.changed_on_disk = false;
-                });
-                files::remove_recovery(id);
+        let mtime = files::write(path, &text, crlf)?;
+        tab.update(cx, |e, _| {
+            e.file.path = Some(path.to_path_buf());
+            e.file.saved_version = version;
+            e.file.mtime = mtime;
+            e.file.changed_on_disk = false;
+        });
+        files::remove_recovery(id);
+        Ok(())
+    }
+
+    fn write_tab(&mut self, tab: Entity<Editor>, path: PathBuf, close: bool, window: &mut Window, cx: &mut Context<Self>) {
+        match Self::write_file(&tab, &path, cx) {
+            Ok(()) => {
                 cx.update_global(|s: &mut Settings, _| {
                     s.push_recent(path);
                     s.save();
