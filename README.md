@@ -12,11 +12,8 @@ A fast, simple notepad built with [GPUI](https://www.gpui.rs/), the UI framework
 
 Get the latest build for your OS from the [Releases](../../releases) page.
 
-| OS | File |
-|---|---|
-| macOS (Apple Silicon) | `Notepad-*-macos-arm64.dmg` |
-| Linux (x86_64) | `gpui-notepad-*-linux-x86_64.tar.gz` |
-| Windows (x86_64) | `gpui-notepad-*-windows-x86_64.zip` |
+macOS (Apple Silicon): `Notepad-*-macos-arm64.dmg`. Open it and drag Notepad to Applications.
+Linux and Windows builds are not available yet; build from source.
 
 ### macOS first launch
 
