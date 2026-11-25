@@ -1,6 +1,7 @@
 //! Root view: tabs, toolbar, find/goto bars, status bar. Behaviour is split by concern.
 mod docs;
 mod save;
+mod updates;
 mod safety;
 mod search;
 
@@ -42,6 +43,7 @@ pub struct Notepad {
     pub matches: Vec<Range<usize>>,
     pub cur_match: Option<usize>,
     pub status: String,
+    pub update: Option<crate::update::Update>,
     /// tab id -> buffer version last written to the recovery file
     autosaved: HashMap<u64, u64>,
     /// Set once the user confirmed discarding unsaved work, so closing proceeds.
@@ -78,6 +80,7 @@ impl Notepad {
             matches: Vec::new(),
             cur_match: None,
             status: String::new(),
+            update: None,
             autosaved: HashMap::new(),
             force_close: false,
             focus: cx.focus_handle(),
@@ -87,6 +90,9 @@ impl Notepad {
             np.new_tab(window, cx);
         }
         np.start_background_tasks(window, cx);
+        if cx.global::<Settings>().check_updates {
+            np.check_updates(false, cx);
+        }
         np
     }
 
@@ -155,11 +161,14 @@ impl Render for Notepad {
             InsertDateTime => |t, _, c| t.insert_datetime(c),
             Escape => |t, w, c| { t.menu = None; t.close_bar(w, c) },
             Quit => |t, w, c| t.quit(w, c),
+            CheckForUpdates => |t, _, c| t.check_updates(true, c),
+            ToggleUpdateCheck => |t, _, c| t.update_settings(c, |s| s.check_updates = !s.check_updates),
         }
 
         root.child(tabs::tab_strip(self, &th, cx))
             .child(toolbar::toolbar(self, &th, cx))
             .children(findbar::bar(self, &th, window, cx))
+            .children(banner::update_banner(self, &th, cx))
             .children(banner::disk_banner(self, &th, cx))
             .child(div().flex_1().min_h_0().child(self.active_editor().clone()))
             .child(statusbar::status_bar(self, &th, cx))

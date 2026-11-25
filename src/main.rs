@@ -7,6 +7,7 @@ mod notepad;
 mod settings;
 mod theme;
 mod ui;
+mod update;
 
 use gpui::{prelude::*, App, Application, Bounds, WindowBounds, WindowOptions, px, size};
 use notepad::Notepad;

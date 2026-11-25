@@ -17,7 +17,7 @@ actions!(
     [
         NewTab, OpenFile, Save, SaveAs, CloseTab, NextTab, PrevTab, Find, Replace, FindNext,
         FindPrev, GoToLine, ToggleWrap, ToggleLineNumbers, InsertDateTime, ZoomIn, ZoomOut,
-        ToggleTheme, Quit, Escape,
+        ToggleTheme, Quit, Escape, CheckForUpdates, ToggleUpdateCheck,
     ]
 );
 
@@ -63,7 +63,12 @@ pub fn menus() -> Vec<Menu> {
     vec![
         Menu {
             name: "Notepad".into(),
-            items: vec![item("Quit", Quit)],
+            items: vec![
+                item("Check for Updates…", CheckForUpdates),
+                item("Check for Updates Automatically", ToggleUpdateCheck),
+                MenuItem::separator(),
+                item("Quit", Quit),
+            ],
         },
         Menu {
             name: "File".into(),

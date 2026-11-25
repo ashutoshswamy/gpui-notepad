@@ -13,6 +13,7 @@ pub struct Settings {
     pub theme: String,
     pub wrap: bool,
     pub line_numbers: bool,
+    pub check_updates: bool,
     pub recent: Vec<PathBuf>,
 }
 
@@ -26,6 +27,7 @@ impl Default for Settings {
             theme: "Dark+".into(),
             wrap: true,
             line_numbers: true,
+            check_updates: true,
             recent: Vec::new(),
         }
     }
@@ -49,6 +51,7 @@ impl Settings {
                 "dark" if !legacy_seen => s.theme = if v == "1" { "Dark+" } else { "Light+" }.into(),
                 "wrap" => s.wrap = v == "1",
                 "lines" => s.line_numbers = v == "1",
+                "updates" => s.check_updates = v == "1",
                 "recent" => s.recent.push(v.into()),
                 _ => {}
             }
@@ -58,12 +61,13 @@ impl Settings {
 
     pub fn save(&self) {
         let mut out = format!(
-            "font={}\nsize={}\ntheme={}\nwrap={}\nlines={}\n",
+            "font={}\nsize={}\ntheme={}\nwrap={}\nlines={}\nupdates={}\n",
             self.font_family,
             self.font_size,
             self.theme,
             self.wrap as u8,
-            self.line_numbers as u8
+            self.line_numbers as u8,
+            self.check_updates as u8
         );
         for p in &self.recent {
             out.push_str(&format!("recent={}\n", p.display()));
