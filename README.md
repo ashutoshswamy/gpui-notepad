@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" width="96" alt="Notepad logo"></p>
+
 # Notepad
 
 A fast, simple notepad built with [GPUI](https://www.gpui.rs/), the UI framework behind Zed.

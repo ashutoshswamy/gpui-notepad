@@ -8,8 +8,9 @@ BIN=target/release/gpui-notepad
 [ -x "$BIN" ] || cargo build --release
 
 APP=dist/Notepad.app
-rm -rf dist && mkdir -p "$APP/Contents/MacOS"
+rm -rf dist && mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Notepad"
+cp assets/icon.icns "$APP/Contents/Resources/icon.icns"
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -17,6 +18,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleName</key><string>Notepad</string>
   <key>CFBundleDisplayName</key><string>Notepad</string>
   <key>CFBundleIdentifier</key><string>dev.gpui-notepad.app</string>
+  <key>CFBundleIconFile</key><string>icon</string>
   <key>CFBundleExecutable</key><string>Notepad</string>
   <key>CFBundleVersion</key><string>$VERSION</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>

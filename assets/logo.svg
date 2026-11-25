@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Notepad">
+  <rect width="256" height="256" rx="58" fill="#1b2232"/>
+  <g transform="translate(-3 -14)">
+    <path d="M94 190V90M94 138Q94 96 132 96Q168 96 168 138" fill="none" stroke="#eef1f8" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M155 138H181V190a13 13 0 0 1-26 0Z" fill="#ff7a2f"/>
+  </g>
+</svg>
