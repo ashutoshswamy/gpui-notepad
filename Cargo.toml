@@ -1,0 +1,16 @@
+[package]
+name = "gpui-notepad"
+version = "0.1.0"
+edition = "2024"
+description = "A simple, fast notepad built with GPUI"
+license = "MIT"
+
+[dependencies]
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
+gpui = "0.2.2"
+unicode-segmentation = "1.13.3"
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1

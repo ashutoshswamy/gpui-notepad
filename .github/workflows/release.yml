@@ -1,0 +1,86 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            name: macos-arm64
+          - os: ubuntu-22.04
+            name: linux-x86_64
+          - os: windows-latest
+            name: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Metal toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: xcodebuild -downloadComponent MetalToolchain
+
+      - name: System libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang cmake pkg-config libfontconfig-dev \
+            libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev libx11-xcb-dev libxcb1-dev \
+            libxcb-xkb-dev libasound2-dev libvulkan-dev libssl-dev libzstd-dev
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: scripts/bundle-macos.sh
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          V=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          mkdir -p dist/pkg
+          cp target/release/gpui-notepad README.md LICENSE dist/pkg/
+          tar -C dist/pkg -czf "dist/gpui-notepad-$V-${{ matrix.name }}.tar.gz" .
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          V=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          mkdir -p dist/pkg
+          cp target/release/gpui-notepad.exe README.md LICENSE dist/pkg/
+          (cd dist/pkg && 7z a "../gpui-notepad-$V-${{ matrix.name }}.zip" .)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            dist/*.dmg
+            dist/*.tar.gz
+            dist/*.zip
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" assets/* --repo "${{ github.repository }}" --title "Notepad ${{ github.ref_name }}" --generate-notes
